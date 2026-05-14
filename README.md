@@ -38,7 +38,7 @@ trekking-club-application/
 
 1. Clone this repository:
    ```bash
-   git clone https://github.com/your-username/trekking_flask.git
+   git clone https://github.com/LeutnantMutig/trekking_flask.git
    cd trekking_flask/trekking_flask
    ```
 
