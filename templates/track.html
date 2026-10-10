@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Live Location Tracking</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      color: #222;
+    }
+
+    h2 {
+      margin: 0;
+      padding: 16px;
+    }
+
+    #status {
+      margin: 0;
+      padding: 0 16px 12px;
+    }
+
+    #map {
+      height: 80vh;
+      width: 100%;
+      background: #eee;
+    }
+  </style>
+
+  <script>
+    // Flask/Jinja safely provides the user ID.
+    const userId = {{ user_id | tojson }};
+
+    let map;
+    let marker;
+    let refreshTimer;
+
+    function initMap() {
+      const initialPosition = {
+        lat: 20.5937,
+        lng: 78.9629
+      };
+
+      map = new google.maps.Map(document.getElementById("map"), {
+        center: initialPosition,
+        zoom: 5
+      });
+
+      // Load location immediately after the map initializes.
+      fetchLocation();
+
+      // Refresh location every five seconds.
+      refreshTimer = setInterval(fetchLocation, 5000);
+    }
+
+    async function fetchLocation() {
+      const status = document.getElementById("status");
+
+      try {
+        const response = await fetch(
+          `/track-data/${encodeURIComponent(userId)}`,
+          { cache: "no-store" }
+        );
+
+        if (!response.ok) {
+          throw new Error(`Request failed: HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        if (data.status !== "success") {
+          status.textContent =
+            data.message || "Waiting for location data...";
+          return;
+        }
+
+        const lat = Number(data.lat);
+        const lon = Number(data.lon);
+
+        // Validate coordinates before using them on the map.
+        if (
+          !Number.isFinite(lat) ||
+          !Number.isFinite(lon) ||
+          lat < -90 ||
+          lat > 90 ||
+          lon < -180 ||
+          lon > 180
+        ) {
+          status.textContent = "Received invalid location coordinates.";
+          return;
+        }
+
+        const position = {
+          lat: lat,
+          lng: lon
+        };
+
+        if (!marker) {
+          marker = new google.maps.Marker({
+            position: position,
+            map: map,
+            title: "Tracked location"
+          });
+        } else {
+          marker.setPosition(position);
+        }
+
+        map.setCenter(position);
+        map.setZoom(14);
+
+        status.textContent =
+          `Location updated: ${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+      } catch (error) {
+        console.error("Error fetching location:", error);
+        status.textContent =
+          "Unable to fetch location. Please try again.";
+      }
+    }
+  </script>
+
+  <!-- Flask supplies the Google Maps API key from the environment. -->
+  <script
+    src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&callback=initMap"
+    async
+    defer>
+  </script>
+</head>
+
+<body>
+  <h2>📍Live Location Tracking</h2>
+
+  <p id="status" role="status" aria-live="polite">
+    Loading map...
+  </p>
+
+  <div id="map"></div>
+</body>
+</html>
